@@ -1,0 +1,162 @@
+
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>表情包加密器 - 趣味传讯工具</title>
+    
+    <!-- 纯前端依赖，无需本地构建 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
+            min-height: 100vh;
+            margin: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+        }
+        .glass-container {
+            background: rgba(255, 255, 255, 0.98);
+            backdrop-filter: blur(20px);
+            border-radius: 2rem;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+            width: 100%;
+            max-width: 1000px;
+            overflow: hidden;
+        }
+        .text-area-custom::-webkit-scrollbar { width: 6px; }
+        .text-area-custom::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
+    </style>
+<link rel="stylesheet" href="/index.css">
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        const EMOJI_MAP = ['😀', '😂', '😍', '🥳', '😎', '🤔', '😱', '😴', '👍', '🔥'];
+        const SEPARATOR = '✨';
+
+        const encode = (text) => {
+            if (!text) return '';
+            try {
+                const bytes = new TextEncoder().encode(text);
+                return Array.from(bytes).map(byte => {
+                    const s = byte.toString().padStart(3, '0');
+                    return s.split('').map(d => EMOJI_MAP[parseInt(d)]).join('');
+                }).join(SEPARATOR);
+            } catch (e) { return '编码出错'; }
+        };
+
+        const decode = (emojiStr) => {
+            if (!emojiStr) return '';
+            try {
+                const clean = emojiStr.replace(/\s/g, '');
+                const parts = clean.split(SEPARATOR);
+                const bytes = parts.map(p => {
+                    const emojis = Array.from(p);
+                    if (emojis.length !== 3) throw new Error();
+                    let dStr = '';
+                    for (const char of emojis) {
+                        const idx = EMOJI_MAP.indexOf(char);
+                        if (idx === -1) throw new Error();
+                        dStr += idx;
+                    }
+                    return parseInt(dStr);
+                });
+                return new TextDecoder().decode(new Uint8Array(bytes));
+            } catch (e) {
+                return '⚠️ 解码失败：请检查输入的 Emoji 串是否由本工具生成且完整。';
+            }
+        };
+
+        const App = () => {
+            const [mode, setMode] = useState('encode');
+            const [input, setInput] = useState('');
+            const [output, setOutput] = useState('');
+            const [copied, setCopied] = useState(false);
+
+            useEffect(() => {
+                const val = input.trim();
+                if (!val) { setOutput(''); return; }
+                setOutput(mode === 'encode' ? encode(val) : decode(val));
+            }, [input, mode]);
+
+            return (
+                <div className="glass-container flex flex-col">
+                    <header className="bg-indigo-600 p-6 text-white flex flex-col sm:flex-row items-center justify-between gap-4">
+                        <div className="flex items-center gap-3">
+                            <div className="bg-white/20 p-2 rounded-xl text-2xl">🤫</div>
+                            <div>
+                                <h1 className="text-xl font-bold text-white">表情包加密器</h1>
+                                <p className="text-xs text-indigo-100/80">文字与 Emoji 的趣味双向转换</p>
+                            </div>
+                        </div>
+                        <div className="flex bg-black/20 p-1 rounded-xl">
+                            <button onClick={() => {setMode('encode'); setInput('');}} className={`px-6 py-2 rounded-lg text-sm font-bold transition-all ${mode === 'encode' ? 'bg-white text-indigo-600' : 'text-white'}`}>加密文字</button>
+                            <button onClick={() => {setMode('decode'); setInput('');}} className={`px-6 py-2 rounded-lg text-sm font-bold transition-all ${mode === 'decode' ? 'bg-white text-indigo-600' : 'text-white'}`}>解密内容</button>
+                        </div>
+                    </header>
+
+                    <main className="flex flex-col md:flex-row min-h-[400px]">
+                        <div className="flex-1 p-6 border-b md:border-b-0 md:border-r border-gray-100">
+                            <div className="flex justify-between items-center mb-3">
+                                <label className="text-xs font-bold text-gray-400 uppercase tracking-tighter">{mode === 'encode' ? '待加密原文' : '待解密 Emoji'}</label>
+                                <button onClick={() => setInput('')} className="text-gray-300 hover:text-red-400"><i className="fas fa-trash-alt text-xs"></i></button>
+                            </div>
+                            <textarea value={input} onChange={(e) => setInput(e.target.value)} placeholder={mode === 'encode' ? '输入你想隐藏的悄悄话...' : '在此粘贴收到的 Emoji 密文...'} className="w-full h-64 md:h-80 p-4 bg-gray-50 border-none rounded-2xl outline-none resize-none text-gray-700 text-lg" />
+                        </div>
+                        <div className="flex-1 p-6 bg-gray-50/30">
+                            <div className="flex justify-between items-center mb-3">
+                                <label className="text-xs font-bold text-gray-400 uppercase tracking-tighter">转换结果</label>
+                                {output && !output.startsWith('⚠️') && (
+                                    <button onClick={() => {navigator.clipboard.writeText(output); setCopied(true); setTimeout(()=>setCopied(false), 2000);}} className={`px-4 py-1.5 rounded-full text-xs font-bold flex items-center gap-2 transition-all ${copied ? 'bg-green-500 text-white' : 'bg-indigo-600 text-white hover:bg-indigo-700'}`}>
+                                        <i className={`fas ${copied ? 'fa-check' : 'fa-copy'}`}></i>{copied ? '已复制' : '复制结果'}
+                                    </button>
+                                )}
+                            </div>
+                            <div className="w-full h-64 md:h-80 p-4 bg-white border border-gray-100 rounded-2xl text-gray-800 break-all overflow-y-auto text-lg leading-relaxed shadow-inner">
+                                {output || <span className="text-gray-300 italic text-sm">等待输入内容...</span>}
+                            </div>
+                        </div>
+                    </main>
+
+                    <footer className="p-6 bg-white border-t border-gray-50">
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-center">
+                            <div className="flex flex-col items-center gap-1">
+                                <i className="fas fa-shield-alt text-indigo-500 text-lg"></i>
+                                <span className="text-xs font-bold text-gray-600">隐私声明</span>
+                                <p className="text-[10px] text-gray-400 px-4">所有转换均在您的浏览器本地完成，我们不储存、不上传、也不查阅您的任何个人信息。</p>
+                            </div>
+                            <div className="flex flex-col items-center gap-1">
+                                <i className="fas fa-bolt text-amber-500 text-lg"></i>
+                                <span className="text-xs font-bold text-gray-600">实时处理</span>
+                                <p className="text-[10px] text-gray-400 px-4">采用纯前端算法，输入即转换。不产生任何后端网络请求。</p>
+                            </div>
+                            <div className="flex flex-col items-center gap-1">
+                                <i className="fas fa-mobile-alt text-emerald-500 text-lg"></i>
+                                <span className="text-xs font-bold text-gray-600">全平台兼容</span>
+                                <p className="text-[10px] text-gray-400 px-4">仅使用 10 种基础 Emoji 字符，确保在所有设备间无缝显示。</p>
+                            </div>
+                        </div>
+                    </footer>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+<script type="module" src="/index.tsx"></script>
+</body>
+</html>
